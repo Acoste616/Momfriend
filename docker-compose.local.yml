@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with PostGIS for local development
+  postgres:
+    image: postgis/postgis:14-3.2
+    container_name: momfriend-db-local
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: momfriend
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - momfriend-local
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: momfriend-redis-local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_local_data:/data
+    command: redis-server --appendonly yes --requirepass ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - momfriend-local
+
+  # Backend API Service (optional - for full Docker setup)
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: momfriend-backend-local
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/momfriend
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=mom-friend-local-secret-key-2025
+      - LOG_LEVEL=debug
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/logs:/app/logs
+      - backend_node_modules:/app/node_modules
+    restart: unless-stopped
+    networks:
+      - momfriend-local
+    profiles:
+      - full-docker  # Use: docker-compose --profile full-docker up
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: momfriend-pgadmin-local
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@momfriend.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_local_data:/var/lib/pgadmin
+    restart: unless-stopped
+    networks:
+      - momfriend-local
+    profiles:
+      - with-pgadmin  # Use: docker-compose --profile with-pgadmin up
+
+  # Redis Insight for Redis management (optional)
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: momfriend-redis-insight-local
+    ports:
+      - "8001:8001"
+    depends_on:
+      - redis
+    volumes:
+      - redis_insight_data:/db
+    restart: unless-stopped
+    networks:
+      - momfriend-local
+    profiles:
+      - with-redis-insight  # Use: docker-compose --profile with-redis-insight up
+
+volumes:
+  postgres_local_data:
+    driver: local
+  redis_local_data:
+    driver: local
+  pgadmin_local_data:
+    driver: local
+  redis_insight_data:
+    driver: local
+  backend_node_modules:
+    driver: local
+
+networks:
+  momfriend-local:
+    driver: bridge
+    name: momfriend-local-network 
