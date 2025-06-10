@@ -109,60 +109,73 @@ class ApiService {
         response.statusCode ?? 200,
       );
     } catch (e) {
-      final error = _handleError(e);
-      return ApiResponse.error(error.error!, error.statusCode);
+      return _handleError<Map<String, dynamic>>(e);
     }
   }
 
   // Generic GET request
-  Future<ApiResponse<dynamic>> get(
+  Future<ApiResponse<T>> get<T>(
     String endpoint, {
     Map<String, dynamic>? queryParams,
+    T Function(dynamic json)? fromJson,
   }) async {
     try {
       final response = await _dio.get(
         endpoint,
         queryParameters: queryParams,
       );
-      return ApiResponse.success(response.data, response.statusCode ?? 200);
+      final data =
+          fromJson != null ? fromJson(response.data) : response.data as T;
+      return ApiResponse.success(data, response.statusCode ?? 200);
     } catch (e) {
-      return _handleError(e);
+      return _handleError<T>(e);
     }
   }
 
   // Generic POST request
-  Future<ApiResponse<dynamic>> post(
+  Future<ApiResponse<T>> post<T>(
     String endpoint, {
     Map<String, dynamic>? body,
+    T Function(dynamic json)? fromJson,
   }) async {
     try {
       final response = await _dio.post(endpoint, data: body);
-      return ApiResponse.success(response.data, response.statusCode ?? 200);
+      final data =
+          fromJson != null ? fromJson(response.data) : response.data as T;
+      return ApiResponse.success(data, response.statusCode ?? 200);
     } catch (e) {
-      return _handleError(e);
+      return _handleError<T>(e);
     }
   }
 
   // Generic PUT request
-  Future<ApiResponse<dynamic>> put(
+  Future<ApiResponse<T>> put<T>(
     String endpoint, {
     Map<String, dynamic>? body,
+    T Function(dynamic json)? fromJson,
   }) async {
     try {
       final response = await _dio.put(endpoint, data: body);
-      return ApiResponse.success(response.data, response.statusCode ?? 200);
+      final data =
+          fromJson != null ? fromJson(response.data) : response.data as T;
+      return ApiResponse.success(data, response.statusCode ?? 200);
     } catch (e) {
-      return _handleError(e);
+      return _handleError<T>(e);
     }
   }
 
   // Generic DELETE request
-  Future<ApiResponse<dynamic>> delete(String endpoint) async {
+  Future<ApiResponse<T>> delete<T>(
+    String endpoint, {
+    T Function(dynamic json)? fromJson,
+  }) async {
     try {
       final response = await _dio.delete(endpoint);
-      return ApiResponse.success(response.data, response.statusCode ?? 200);
+      final data =
+          fromJson != null ? fromJson(response.data) : response.data as T;
+      return ApiResponse.success(data, response.statusCode ?? 200);
     } catch (e) {
-      return _handleError(e);
+      return _handleError<T>(e);
     }
   }
 
@@ -180,12 +193,12 @@ class ApiService {
       final response = await _dio.post(endpoint, data: formData);
       return ApiResponse.success(response.data, response.statusCode ?? 200);
     } catch (e) {
-      return _handleError(e);
+      return _handleError<dynamic>(e);
     }
   }
 
   // Handle errors
-  ApiResponse<dynamic> _handleError(dynamic error) {
+  ApiResponse<T> _handleError<T>(dynamic error) {
     String errorMessage = 'Network error occurred';
     int statusCode = 500;
 
